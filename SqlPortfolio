@@ -1,0 +1,146 @@
+
+select *
+from [sql portfolio]..['covid-deaths$']
+order by 3,4
+
+
+select *
+from [sql portfolio]..['covid-vaccinations$']
+order by 3,4
+
+
+select location, date, total_cases, new_cases, total_deaths, population 
+from [sql portfolio]..['covid-deaths$']
+order by 1,2
+
+--Now We will be looking at Total_cases vs Total_deaths
+
+
+select location, date, total_cases, total_deaths, (total_deaths/total_cases)*100 as Death_percentage
+from [sql portfolio]..['covid-deaths$']
+where location like '%india%'
+order by 1,2
+
+select location, date, total_cases, total_deaths, (total_deaths/total_cases)*100 as Death_percentage
+from [sql portfolio]..['covid-deaths$']
+where location like '%canada%'
+order by 1,2
+
+
+--for total cases vs total population in Canada
+
+select location, date, population, total_deaths, (total_deaths/population)*100 as infection_Per_population
+from [sql portfolio]..['covid-deaths$']
+where location like '%canada%'
+order by 1,2
+
+
+
+--For countries with highest infection rates compared to population
+
+select location, population, max(total_cases) as highest_infection_count, max((total_cases/population)) *100 as Percent_population_infected
+from [sql portfolio]..['covid-deaths$']
+group by location, population
+order by Percent_population_infected desc
+
+
+--for countries with highest deathrate per population
+
+select location, max(cast(total_deaths as int)) as total_death_count
+from [sql portfolio]..['covid-deaths$']
+where continent is not null
+group by location
+order by total_death_count desc
+
+--for Highest deathrate per continent
+
+select continent, max(cast(total_deaths as int)) as total_death_count
+from [sql portfolio]..['covid-deaths$']
+where continent is not null
+group by continent
+order by total_death_count desc
+
+--for Global number on daily basis
+
+select date, sum(new_cases) as Total_cases, sum(cast(New_deaths as int)) as Total_deaths,
+sum(cast(New_deaths as int))/sum(new_cases)*100 as Death_percentage
+from [sql portfolio]..['covid-deaths$']
+where continent is not null
+group by date
+order by 1,2
+
+--Global numbers in total 
+
+select sum(new_cases) as Total_cases, sum(cast(New_deaths as int)) as Total_deaths,
+sum(cast(New_deaths as int))/sum(new_cases)*100 as Death_percentage
+from [sql portfolio]..['covid-deaths$']
+where continent is not null
+order by 1,2
+
+--Now Total_population vs Vaccinated_Population Per day
+
+
+select dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations
+, sum(cast(vac.new_vaccinations as bigint)) over (partition by dea.location order by dea.location, dea.date) as TotalPeopleVaccinatePerCountry
+--(TotalPeopleVaccinatePerCountry/population)*100
+from [sql portfolio]..['covid-deaths$'] dea
+join [sql portfolio]..['covid-vaccinations$'] vac
+on dea.location =vac.location
+and dea.date=vac.date
+where dea.continent is not null
+order by 2,3
+
+
+-- Now using CTE
+
+
+with PopVsVac (continent, location, date, population, new_vaccinations, TotalPeopleVaccinatePerCountry)
+as
+(
+select dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations
+, sum(cast(vac.new_vaccinations as bigint)) over (partition by dea.location order by dea.location, dea.date) as TotalPeopleVaccinatePerCountry
+--(TotalPeopleVaccinatePerCountry/population)*100
+from [sql portfolio]..['covid-deaths$'] dea
+join [sql portfolio]..['covid-vaccinations$'] vac
+on dea.location =vac.location
+and dea.date=vac.date
+where dea.continent is not null
+--order by 2,3
+)
+select *, (TotalPeopleVaccinatePerCountry/population)*100
+from PopVsVac
+
+--for tablueau
+
+Select SUM(new_cases) as total_cases, SUM(cast(new_deaths as int)) as total_deaths, SUM(cast(new_deaths as int))/SUM(New_Cases)*100 as DeathPercentage
+From [sql portfolio]..['covid-deaths$']
+--Where location like '%states%'
+where continent is not null 
+--Group By date
+order by 1,2
+
+--2
+
+Select location, SUM(cast(new_deaths as int)) as TotalDeathCount
+From [sql portfolio]..['covid-deaths$']
+--Where location like '%states%'
+Where continent is null 
+and location not in ('World', 'European Union', 'International')
+Group by location
+order by TotalDeathCount desc
+
+--3
+
+Select Location, Population, MAX(total_cases) as HighestInfectionCount,  Max((total_cases/population))*100 as PercentPopulationInfected
+From [sql portfolio]..['covid-deaths$']
+--Where location like '%states%'
+Group by Location, Population
+order by PercentPopulationInfected desc
+
+--4
+
+Select Location, Population,date, MAX(total_cases) as HighestInfectionCount,  Max((total_cases/population))*100 as PercentPopulationInfected
+From [sql portfolio]..['covid-deaths$']
+--Where location like '%states%'
+Group by Location, Population, date
+order by PercentPopulationInfected desc
